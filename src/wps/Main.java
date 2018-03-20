@@ -6,7 +6,7 @@ import java.net.DatagramSocket;
 
 
 public class Main {
-    private static double version = 1.0;
+    private static double version = 1.1;
     private static String author = "nix007";
     
 	private static int portnumber = 8080;

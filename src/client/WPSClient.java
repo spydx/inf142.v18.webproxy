@@ -188,6 +188,10 @@ class WPSClient {
     private static void getHelpMenu() {
     		System.out.println("Help menu:\n");
     		System.out.println("GET hostname - request a webpage e.g: GET www.example.com");
+    		System.out.println("GET hostname/path - requst a subpage e.g GET www.uib.no/matnat/");
+    		System.out.println("GET http://hostname - request a webpage e.g GET http://www.kefo.no");
+    		System.out.println("GET https://hostname - request a secure webpage e.g GET https://www.kefo.no");
+    		System.out.println();
     		System.out.println("? - this menu");
     		System.out.println("Q - end application");
     		System.out.println("");		
