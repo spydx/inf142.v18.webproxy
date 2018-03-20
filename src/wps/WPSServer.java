@@ -235,7 +235,6 @@ public class WPSServer implements Runnable{
 				clientSocket = new Socket(hostname, HTTP_PORT);
 				writeTcpToServer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 			}
-			//PrintWriter writeTcpToServer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 			
 			if(urlstring.size() > 1) {
 				String path = urlstring.get(1).trim();
