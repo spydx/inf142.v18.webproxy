@@ -1,0 +1,159 @@
+\documentclass[norsk,a4paper]{article}
+\usepackage[norsk]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{csquotes}% Recommended
+\usepackage{lastpage}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+
+\pagestyle{fancy}
+\fancyhf{}
+
+
+
+\chead{INF142 - Oblig 1 - Oppgave 1}
+\title{WebProxyServer UDP Protokoll beskrivelse}
+\author{Kenneth Fossen @nix007}
+\lfoot{}
+\cfoot{Side \thepage{} av \pageref{LastPage}}
+
+\begin{document}
+\maketitle
+\tableofcontents{}
+\listoffigures
+
+\clearpage
+
+\section{Innledning}
+
+Oppgaven beskriver at vi skal lage en WebProxyServer (WPS) der all kommunikasjon mellom klienten (K) og WPS blir håndtert via UDP.
+
+I fra oppgaveteksten:
+\textit{K skal kommuniserer med WPS gjennom en egen applikasjonsprotokoll som dere skal beskrive som en egen deloppgave. Denne protokollen skal dere implemterer gjennom at K og WPS kommuniserer ved hjelp av UDP/DatagramSocketer.}
+
+Videre står det at: \textit{K skal sende \textbf{vertsnavn} og eventuelt \textbf{stinavn} til WPS. Beskriv spesielt hvordan protkollen håndterer situsajonen med at det er valgfritt for K å sende stinavn.}
+
+Beskrivelse:
+\begin{itemize}
+  \item WPS skal bruke TCP for å hente kun \textit{headerinfo} med RAW HTTP fra en webserver, angitt med bruker input i fra K.
+  K skal også kunne oppgi stinavn som skal hentes på server.
+  Dersom K ikke oppgir stinavn skal default \textit{/}.
+  \item K skal kommunisere med WPS gjennom egen applikasjonsprotokoll.
+  Gjøres ved hjelp av UDP/DatagramSocketer.
+\end{itemize}
+
+\clearpage
+
+\section{Protokoll beskrivelse for kommunikasjon med WPS}
+\subsection{Kommunikasjon}
+
+\subsubsection{Klienten}
+\textbf{Kommandoer}
+\begin{itemize}
+  \item \textbf{GET} - henter en websti
+  \item \textbf{?} - viser hjelpemeny
+  \item \textbf{QUIT} - avslutter applikasjonen
+\end{itemize}
+
+Klienten er satt opp til å kommunisere med WPS Serveren via port UDP/8080.
+Denne må være åpnet for i brannmur for at kommunikasjonen skal fungere mellom klient og server.
+
+\textbf{GET} : brukes på følgende måte:
+\textit{GET www.bt.no}
+
+Dette vil returnere headerinfo i fra \textit{www.bt.no} og vise det på klienten.
+
+Klienten kan så requeste en ny eller avslutte applikasjonen sin med kommandoen \textbf{QUIT} eller \textbf{Q}.
+
+\begin{figure}[ht!]
+  \includegraphics[width=0.95\linewidth]{img/k_menu.png}
+  \caption{Klient meny}
+  \label{fig:klient_meny}
+\end{figure}
+
+\subsection{Vertnavn håndtering og Stihåndtering}
+Serveren tar i mot en request på følgende format:
+
+\textit{«GET URL»}
+
+\textit{«GET www.kefo.no»} eller \textit{«GET www.kefo.no/wp-admin»}
+
+Når servern mottar denne GET kommandoen blir GET strippet fra hele kommandoen slik at en står igjen med URLen, og URLen blir ACKet, i en pakke som ser slik ut ACK URL.
+
+Så blir URL dataene fra kommandoen behandlet i processURL().
+Dette gjør at når vi skal sende HTTP GET post over TCP så kan vi konstruere den etter HTTP standarden.
+
+For en helt vanlig sti 1. «www.kefo.no» eller 2. «www.kefo.no/» så blir det slik brukeren skriver.
+\begin{itemize}
+  \item I 1. tilfellet fil en få HTTP/1.1 200/OK
+  \item I 2. tilflelet vil en få HTTP/1.1 301/Moved Permanently
+\end{itemize}
+
+Se Figur \eqref{fig:k_kefo}
+
+\begin{figure}[ht!]
+  \includegraphics[width=1\linewidth]{img/k_kefo.png}
+  \caption{Klient henter kefo.no og kefo.no/}
+  \label{fig:k_kefo}
+\end{figure}
+
+WPS Servern vil kunne håndtere følgende situasjoner:
+\begin{itemize}
+  \item webside med sti
+  \item websiden uten sti
+  \item ugyldige web addresser (FQDN)
+\end{itemize}
+
+WPS Serveren begrenser også til 5 tegn på en webadresse e.g ba.no.
+
+Når serveren skal sende HTTP GET til en webside uten sti,
+så blir requesten formet slik: \textit{GET / HTTP/1.0}
+
+Når serveren skal sende HTTP GET til en webside med sti,
+så blir requesten formet slik: \textit{GET http://FQDN/path HTTP/1.0}
+\clearpage
+\subsection{Feilhåndtering}
+
+Alle feilkoder i fra HTTP protokollen blir returnert som meldinger til brukeren.
+
+Feil, e.g FQDN feil, så vil WPS Serveren sende en RST pakke til klienten og denne vil så avbryte hentingen og kan gjøre et nytt forsøk.
+
+\subsection{Protokoll beskrivelse}
+
+Siden vi kjører UDP mellom klienten,
+så er det ikke noen avklaring i fra serveren om at den er klar.
+F.eks slik som i SMTP.
+Dette er følgende kommunikasjon som er for en GET request i fra klienten:
+\begin{itemize}
+  \item K   : get www.webside.no to WPS
+  \item WPS : ack to K
+  \item K   : Waiting for headers from WPS
+  \item WPS : TCP request www.webside.no from WEB
+  \item WEB : TCP response to WPS
+  \item WPS : Headerdata to K
+\end{itemize}
+
+Dette vil se slik ut på en klient:
+\begin{figure}[ht!]
+  \includegraphics[width=0.95\linewidth]{img/k_get.png}
+  \caption{Klient get request}
+  \label{fig:klient_get}
+\end{figure}
+
+Dersom det er feil FQDN ,så vil serveren sende en RST istede for ACK for datane og en kan spørre på nytt i fra klienten.
+
+\clearpage
+
+\subsection{Skisse av kommunikasjon}
+
+\begin{figure}[ht!]
+  \includegraphics[width=1\linewidth]{img/k_wps_com.jpg}
+  \caption{Klient WPS Kommunikasjon}
+  \label{fig:k_wps_com}
+\end{figure}
+
+
+\end{document}
