@@ -9,6 +9,9 @@ import java.net.UnknownHostException;
 //List support
 import java.util.ArrayList;
 
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
 //IOExceptions and Readers/Writers
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -36,15 +39,18 @@ public class WPSServer implements Runnable{
 	private static byte[] sendData = new byte[datasize];
 	private DatagramSocket serverSocket;
 	private Socket clientSocket = null;
+	private SSLSocket sslsocket = null;
 	private String HTTP_VERSION = "HTTP/1.1";
 	private String USER_AGENT = "Java Homebrew";
 	private final int HTTP_PORT = 80; 
+	private final int HTTPS_PORT = 443;
+	private boolean HTTPS_MODE = false;
 	
 	/**
 	 * Creating the WPS Server with a packet.
 	 *  
 	 * @param receivePacket communication to process.
-	 * @param id Thread ID, comming from counter in Main.
+	 * @param id Thread ID, coming from counter in Main.
 	 */
 	public WPSServer(DatagramPacket receivePacket, int id) {
 		
@@ -83,17 +89,17 @@ public class WPSServer implements Runnable{
 	    		ArrayList<String> urlstring = processURL(command);
 	    		if(urlstring.isEmpty()) {
 	    		
-	    			ArrayList<String> ackdata = new ArrayList<>();
-	    			ackdata.add(command.toUpperCase().replace("GET", "RST"));
-	    			ackData(ackdata, IPAddress, port);
+	    			ArrayList<String> packetdata = new ArrayList<>();
+	    			packetdata.add(command.toUpperCase().replace("GET", "RST"));
+	    			clientControlMessages(packetdata, IPAddress, port);
 	    		} else {
 	    			ArrayList<String> ackdata = new ArrayList<>();
 	    			ackdata.add(command.toUpperCase().replace("GET", "ACK"));
-	    			ackData(ackdata, IPAddress, port);
+	    			clientControlMessages(ackdata, IPAddress, port);
 	    			try {
 						ArrayList<String> data = getHttpHeaders(urlstring);
 						if(data != null)
-							ackData(data, IPAddress, port);
+							clientControlMessages(data, IPAddress, port);
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -118,7 +124,7 @@ public class WPSServer implements Runnable{
 	 * @throws IOException if we either cant send the packet or writeUTF it will throw exception.
 	 * 
 	 */
-	private void ackData(ArrayList<String> data, InetAddress IPAddress, int port) throws IOException{
+	private void clientControlMessages(ArrayList<String> data, InetAddress IPAddress, int port) throws IOException{
 		String command = data.get(0).trim();
 		if(command.startsWith("RST") || command.startsWith("ACK")) {
 			System.out.println(getThreadID() + "Responding data: " + command);
@@ -162,7 +168,21 @@ public class WPSServer implements Runnable{
 				 System.out.println(getThreadID() + "To short URL, returning null");
 				 return returnUrl;
 			 } else {
+				
 				 String address = strArr[1];
+				 
+				 if(strArr[1].toUpperCase().startsWith("HTTPS://")) {
+					 HTTPS_MODE = true;
+					 int i = address.toUpperCase().indexOf("HTTPS://");
+					 address = address.substring(i+8);
+					
+				 } else if (strArr[1].toUpperCase().startsWith("HTTP://")){
+					 HTTPS_MODE = false;
+					 int i = address.toUpperCase().indexOf("HTTP://");
+					 address = address.substring(i+7);
+					 
+				 } 
+				 System.out.printf("%sUsing %s %s\n", getThreadID(), HTTPS_MODE ? "[HTTPS]" : "[HTTP]", address);
 				 if(address.contains("/")) {
 					 if(address.indexOf("/") == address.length()-1) {
 						 // return just address with tailing /
@@ -179,7 +199,7 @@ public class WPSServer implements Runnable{
 						 return returnUrl;
 					 }
 				 } else {
-					 returnUrl.add(strArr[1]);
+					 returnUrl.add(address);
 					 return returnUrl;
 				 }
 			 }
@@ -199,17 +219,35 @@ public class WPSServer implements Runnable{
 	private ArrayList<String> getHttpHeaders(ArrayList<String> urlstring) throws Exception {
 
 		String hostname = urlstring.get(0).toString().trim();
+		ArrayList<String> data = new ArrayList<>();
+		BufferedReader tcpIn;
+		boolean retriving = true;
+		PrintWriter writeTcpToServer;
+		
 		try {
-			clientSocket = new Socket(hostname,HTTP_PORT);
-			PrintWriter writeTcpToServer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+			
+			if(HTTPS_MODE) {
+				SSLSocketFactory sslfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+				sslsocket = (SSLSocket) sslfactory.createSocket(hostname, HTTPS_PORT);
+				writeTcpToServer = new PrintWriter(new OutputStreamWriter(sslsocket.getOutputStream()));
+				
+			} else {
+				clientSocket = new Socket(hostname, HTTP_PORT);
+				writeTcpToServer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+			}
+			//PrintWriter writeTcpToServer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 			
 			if(urlstring.size() > 1) {
 				String path = urlstring.get(1).trim();
 				System.out.println(getThreadID() + "Sending a TCP Request for " + hostname + path);
-				writeTcpToServer.print("GET http://"+ hostname + path + " " + HTTP_VERSION + "\r\n");
+				if(HTTPS_MODE) {
+					writeTcpToServer.print("HEAD https://"+ hostname + path + " " + HTTP_VERSION + "\r\n");
+				} else { 
+					writeTcpToServer.print("HEAD http://"+ hostname + path + " " + HTTP_VERSION + "\r\n");
+				}
 			} else {
 				System.out.println(getThreadID() + "Sending a TCP Request for " + hostname);
-				writeTcpToServer.print("GET / " + HTTP_VERSION + "\r\n");
+				writeTcpToServer.print("HEAD / " + HTTP_VERSION + "\r\n");
 			}
 			writeTcpToServer.print("User-Agent: " + USER_AGENT+"\r\n");
 			writeTcpToServer.print("Host: " + hostname +"\r\n");
@@ -219,23 +257,35 @@ public class WPSServer implements Runnable{
 		}
 		catch (UnknownHostException e) {
 			System.out.println(getThreadID() + "Unknown hostname");
-			ArrayList<String> data = new ArrayList<>();
+			data.clear();
 			data.add("RST");
-			ackData(data, packet.getAddress(), packet.getPort());
+			clientControlMessages(data, packet.getAddress(), packet.getPort());
 			return null;
 		}  
-	    BufferedReader tcpIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-	    boolean retriving = true;
-	    ArrayList<String> data = new ArrayList<>();
-	    
-	    while(retriving) {
-	    		String header = tcpIn.readLine();
-	    		data.add(header);
-	    		if(header.isEmpty())
-	    			retriving = false;
-	    }
-	    
-	    clientSocket.close();
+
+		if(HTTPS_MODE) {
+			 tcpIn = new BufferedReader(new InputStreamReader(sslsocket.getInputStream()));
+		} else {
+			 tcpIn = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+		}
+
+		try {
+		    while(retriving) {
+		    		String header = tcpIn.readLine();
+		    		data.add(header);
+		    		if(header.isEmpty())
+		    			retriving = false;
+		    }
+		} catch (NullPointerException e) {
+			data.clear();
+			data.add("RST");
+			clientControlMessages(data, packet.getAddress(), packet.getPort());
+			return null;
+		}
+		if(clientSocket != null)
+			clientSocket.close();
+		if(sslsocket != null) 
+			sslsocket.close();
 	    return data;
 		
 	} 
