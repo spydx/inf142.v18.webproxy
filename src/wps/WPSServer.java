@@ -38,6 +38,7 @@ public class WPSServer implements Runnable{
 	private Socket clientSocket = null;
 	private String HTTP_VERSION = "HTTP/1.1";
 	private String USER_AGENT = "Java Homebrew";
+	private final int HTTP_PORT = 80; 
 	
 	/**
 	 * Creating the WPS Server with a packet.
@@ -196,11 +197,10 @@ public class WPSServer implements Runnable{
 	 * @throws Exception
 	 */
 	private ArrayList<String> getHttpHeaders(ArrayList<String> urlstring) throws Exception {
-		
-	    int port = 80;
+
 		String hostname = urlstring.get(0).toString().trim();
 		try {
-			clientSocket = new Socket(hostname,port);
+			clientSocket = new Socket(hostname,HTTP_PORT);
 			PrintWriter writeTcpToServer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
 			
 			if(urlstring.size() > 1) {
