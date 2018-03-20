@@ -12,8 +12,6 @@
 \pagestyle{fancy}
 \fancyhf{}
 
-
-
 \chead{INF142 - Oblig 1 - Oppgave 1}
 \title{WebProxyServer UDP Protokoll beskrivelse}
 \author{Kenneth Fossen @nix007}
@@ -61,10 +59,13 @@ Beskrivelse:
 Klienten er satt opp til å kommunisere med WPS Serveren via port UDP/8080.
 Denne må være åpnet for i brannmur for at kommunikasjonen skal fungere mellom klient og server.
 
-\textbf{GET} : brukes på følgende måte:
-\textit{GET www.bt.no}
+\textbf{GET} : brukes på en av de følgende måte:
+\textit{GET www.uib.no}
+\textit{GET www.uib.no/matnat}
+\textit{GET http://www.bt.no}
+\textit{GET https://www.bt.no/}
 
-Dette vil returnere headerinfo i fra \textit{www.bt.no} og vise det på klienten.
+Dette vil returnere headerinfo i fra \textit{websiden} og vise det på klienten. Serveren vil da lage en HEAD post som blir sendt på enten HTTP eller HTTPS til serveren.
 
 Klienten kan så requeste en ny eller avslutte applikasjonen sin med kommandoen \textbf{QUIT} eller \textbf{Q}.
 
@@ -74,6 +75,8 @@ Klienten kan så requeste en ny eller avslutte applikasjonen sin med kommandoen 
   \label{fig:klient_meny}
 \end{figure}
 
+\clearpage
+
 \subsection{Vertnavn håndtering og Stihåndtering}
 Serveren tar i mot en request på følgende format:
 
@@ -81,22 +84,30 @@ Serveren tar i mot en request på følgende format:
 
 \textit{«GET www.kefo.no»} eller \textit{«GET www.kefo.no/wp-admin»}
 
-Når servern mottar denne GET kommandoen blir GET strippet fra hele kommandoen slik at en står igjen med URLen, og URLen blir ACKet, i en pakke som ser slik ut ACK URL.
+Når servern mottar denne GET kommandoen blir GET og eventuelt protokoll spesifikasjon HTTP eller HTTPS strippet fra hele kommandoen, slik at en står igjen med URLen.
+URLen blir ACKet i en pakke som ser slik ut ACK URL.
+I dette tilfellet «ACK WWW.KEFO.NO» og vises på serverconsolet.
 
 Så blir URL dataene fra kommandoen behandlet i processURL().
-Dette gjør at når vi skal sende HTTP GET post over TCP så kan vi konstruere den etter HTTP standarden.
+Dette gjør at når vi skal sende HTTP HEAD post over TCP så kan vi konstruere den etter HTTP standarden.
 
-For en helt vanlig sti 1. «www.kefo.no» eller 2. «www.kefo.no/» så blir det slik brukeren skriver.
+I getHttpHeaders() blir det også tatt et protokollvalg,
+her bestemmes det om det skal åpnes en HTTP eller HTTPS tilkobling til websiden.
+
+Vi følger \textit{HTTP/1.1} standarden.
+Derfor blir Headeren \textit{Connection: close} lagt til siden vi ikke skal bruke \textit{persistent connections}.
+
+For en helt vanlig sti 1. «www.kefo.no» eller 2. «kefo.no/» så blir det slik brukeren skriver.
 \begin{itemize}
-  \item I 1. tilfellet fil en få HTTP/1.1 200/OK
-  \item I 2. tilflelet vil en få HTTP/1.1 301/Moved Permanently
+  \item I 1. tilfellet fil en få HTTP/1.1 301/Moved Permanently
+  \item I 2. tilflelet vil en få HTTP/1.1 200 OK
 \end{itemize}
 
 Se Figur \eqref{fig:k_kefo}
 
 \begin{figure}[ht!]
   \includegraphics[width=1\linewidth]{img/k_kefo.png}
-  \caption{Klient henter kefo.no og kefo.no/}
+  \caption{Klient henter www.kefo.no og kefo.no/}
   \label{fig:k_kefo}
 \end{figure}
 
@@ -104,16 +115,19 @@ WPS Servern vil kunne håndtere følgende situasjoner:
 \begin{itemize}
   \item webside med sti
   \item websiden uten sti
+  \item HTTP og HTTPS om spesifisert av bruker
   \item ugyldige web addresser (FQDN)
 \end{itemize}
 
 WPS Serveren begrenser også til 5 tegn på en webadresse e.g ba.no.
 
-Når serveren skal sende HTTP GET til en webside uten sti,
-så blir requesten formet slik: \textit{GET / HTTP/1.0}
+Når serveren skal sende HTTP HEAD til en webside uten sti,
+så blir requesten formet slik: \textit{HEAD / HTTP/1.1}
 
-Når serveren skal sende HTTP GET til en webside med sti,
-så blir requesten formet slik: \textit{GET http://FQDN/path HTTP/1.0}
+Når serveren skal sende HTTP HEAD til en webside med sti,
+så blir requesten formet slik: \textit{HEAD http://FQDN/path HTTP/1.1}
+og for HTTPS blir den slik: \textit{HEAD https://FQDN/path HTTP/1.1}.
+
 \clearpage
 \subsection{Feilhåndtering}
 
@@ -124,8 +138,9 @@ Feil, e.g FQDN feil, så vil WPS Serveren sende en RST pakke til klienten og den
 \subsection{Protokoll beskrivelse}
 
 Siden vi kjører UDP mellom klienten,
-så er det ikke noen avklaring i fra serveren om at den er klar.
-F.eks slik som i SMTP.
+så er det ikke noen avklaring i fra serveren om at den er klar, dette medfører at klienten henger til den får kontakt med serveren.
+Det er ikke noe Timeout i klienten.
+
 Dette er følgende kommunikasjon som er for en GET request i fra klienten:
 \begin{itemize}
   \item K   : get www.webside.no to WPS
@@ -135,6 +150,7 @@ Dette er følgende kommunikasjon som er for en GET request i fra klienten:
   \item WEB : TCP response to WPS
   \item WPS : Headerdata to K
 \end{itemize}
+Det er likt for HTTP og HTTPS.
 
 Dette vil se slik ut på en klient:
 \begin{figure}[ht!]
@@ -144,8 +160,6 @@ Dette vil se slik ut på en klient:
 \end{figure}
 
 Dersom det er feil FQDN ,så vil serveren sende en RST istede for ACK for datane og en kan spørre på nytt i fra klienten.
-
-\clearpage
 
 \subsection{Skisse av kommunikasjon}
 
