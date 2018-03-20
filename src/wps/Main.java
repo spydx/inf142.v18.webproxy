@@ -4,9 +4,11 @@ import java.lang.Thread;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 
+
 public class Main {
     private static double version = 1.0;
-    private static String author = "nix007"; 
+    private static String author = "nix007";
+    private static String test;
     
 	private static int portnumber = 8080;
 	private static int datasize = 1024;
