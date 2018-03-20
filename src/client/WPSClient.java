@@ -5,7 +5,7 @@
  * @version 0.1
  *  
  */
-package client; //uncommented for javac compiling.
+//package client; //uncommented for javac compiling.
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
