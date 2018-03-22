@@ -23,21 +23,21 @@ public class Main {
 	 */
 	public static void main(String args[]) {
 		try {
-		// TODO Auto-generated method stub
-		@SuppressWarnings("resource")
-		DatagramSocket serverSocket = new DatagramSocket(portnumber);
-		System.out.printf("\nWPSServer v%.2f %s - Ready\n\n", version, author);
-		System.out.printf("Ready for requests, listening on UDP: %d\n", portnumber);
-		
-		while(true) {
-				++counter;
-			    DatagramPacket receivePacket = new DatagramPacket(receiveData,receiveData.length);
-				serverSocket.receive(receivePacket);
-				System.out.println("[MAIN] Creating a thread for request: " + counter);
-				WPSServer srv = new WPSServer(receivePacket, counter);
-				new Thread(srv).start();
-				receiveData = new byte[datasize];
-		}
+			// TODO Auto-generated method stub
+			@SuppressWarnings("resource")
+			DatagramSocket serverSocket = new DatagramSocket(portnumber);
+			System.out.printf("\nWPSServer v%.2f %s - Ready\n\n", version, author);
+			System.out.printf("Ready for requests, listening on UDP: %d\n", portnumber);
+			
+			while(true) {
+					++counter;
+				    DatagramPacket receivePacket = new DatagramPacket(receiveData,receiveData.length);
+					serverSocket.receive(receivePacket);
+					System.out.println("[MAIN] Creating a thread for request: " + counter);
+					WPSServer srv = new WPSServer(receivePacket, counter);
+					new Thread(srv).start();
+					receiveData = new byte[datasize];
+			}
 		} catch(Exception e) {
 			System.out.println("Something went horrible wrong");
 			System.out.println("There might be a clue in the following line");

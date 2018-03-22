@@ -88,7 +88,6 @@ public class WPSServer implements Runnable{
 	    try {
 	    		ArrayList<String> urlstring = processURL(command);
 	    		if(urlstring.isEmpty()) {
-	    		
 	    			ArrayList<String> packetdata = new ArrayList<>();
 	    			packetdata.add(command.toUpperCase().replace("GET", "RST"));
 	    			clientControlMessages(packetdata, IPAddress, port);
@@ -168,7 +167,6 @@ public class WPSServer implements Runnable{
 				 System.out.println(getThreadID() + "To short URL, returning null");
 				 return returnUrl;
 			 } else {
-				
 				 String address = strArr[1];
 				 
 				 if(strArr[1].toUpperCase().startsWith("HTTPS://")) {
@@ -179,8 +177,7 @@ public class WPSServer implements Runnable{
 				 } else if (strArr[1].toUpperCase().startsWith("HTTP://")){
 					 HTTPS_MODE = false;
 					 int i = address.toUpperCase().indexOf("HTTP://");
-					 address = address.substring(i+7);
-					 
+					 address = address.substring(i+7);	 
 				 } 
 				 System.out.printf("%sUsing %s %s\n", getThreadID(), HTTPS_MODE ? "[HTTPS]" : "[HTTP]", address);
 				 if(address.contains("/")) {
@@ -203,7 +200,6 @@ public class WPSServer implements Runnable{
 					 return returnUrl;
 				 }
 			 }
-			 
 		} 
 		return returnUrl;
 	}
@@ -230,7 +226,6 @@ public class WPSServer implements Runnable{
 				SSLSocketFactory sslfactory = (SSLSocketFactory) SSLSocketFactory.getDefault();
 				sslsocket = (SSLSocket) sslfactory.createSocket(hostname, HTTPS_PORT);
 				writeTcpToServer = new PrintWriter(new OutputStreamWriter(sslsocket.getOutputStream()));
-				
 			} else {
 				clientSocket = new Socket(hostname, HTTP_PORT);
 				writeTcpToServer = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
